@@ -168,6 +168,7 @@ func main() {
 		procPath           string
 		discoveryEndpoint  string
 		token              string
+		iptablesRefresh    time.Duration
 		advertiseAddress   string
 		pluginConfig       plugin.Config
 		defaultDockerHost  = getenvOrDefault("DOCKER_HOST", "unix:///var/run/docker.sock")
@@ -216,6 +217,7 @@ func main() {
 	mflag.StringVar(&discoveryEndpoint, []string{"-peer-discovery-url"}, "https://cloud.weave.works/api/net", "url for peer discovery")
 	mflag.StringVar(&token, []string{"-token"}, "", "token for peer discovery")
 	mflag.StringVar(&advertiseAddress, []string{"-advertise-address"}, "", "address to advertise for peer discovery")
+	mflag.DurationVar(&iptablesRefresh, []string{"-iptables-refresh-interval"}, 0*time.Second, "Interval to reapply iptables. 0 to only apply on launch.")
 
 	mflag.BoolVar(&pluginConfig.Enable, []string{"-plugin"}, false, "enable Docker plugin (v1)")
 	mflag.BoolVar(&pluginConfig.EnableV2, []string{"-plugin-v2"}, false, "enable Docker plugin (v2)")
@@ -512,18 +514,25 @@ func main() {
 		go exposeForAWSVPC(allocator, defaultSubnet, bridgeConfig.WeaveBridgeName, waitReady.Add())
 	}
 
-	// Tickity tock
-	ticker := time.NewTicker(time.Second * 10).C
-	go func() {
-		for {
-			select {
-			case <-ticker:
-				Log.Println("Ensuring the bridge (iptables and that).")
-				_, err := weavenet.EnsureBridge(procPath, &bridgeConfig, Log, ips)
-				checkFatal(err)
+	if iptablesRefresh > 0 {
+		Log.Printf("Entering iptable refresh loop (interval %v)", iptablesRefresh)
+		// Tickity tock
+		ticker := time.NewTicker(iptablesRefresh).C
+		go func() {
+			for {
+				select {
+				case <-ticker:
+					Log.Print("Re-configuring iptables")
+					err := weavenet.ConfigureIPTables(&bridgeConfig, ips)
+					if err != nil {
+						Log.Errorf("Error configuring iptables: %s", err)
+					}
+				}
 			}
-		}
-	}()
+		}()
+	} else {
+		Log.Printf("Not refreshing iptables (interval: %v)", iptablesRefresh)
+	}
 
 	signals.SignalHandlerLoop(common.Log, router)
 }

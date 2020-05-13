@@ -262,7 +262,7 @@ func EnsureBridge(procPath string, config *BridgeConfig, log *logrus.Logger, ips
 		break
 	}
 
-	if err := configureIPTables(config, ips); err != nil {
+	if err := ConfigureIPTables(config, ips); err != nil {
 		return bridgeType, errors.Wrap(err, "configuring iptables")
 	}
 
@@ -431,7 +431,24 @@ func (f fastdpImpl) attach(veth *netlink.Veth) error {
 	return odp.AddDatapathInterfaceIfNotExist(f.datapathName, veth.Attrs().Name)
 }
 
-func configureIPTables(config *BridgeConfig, ips ipset.Interface) error {
+// Dummy way to check whether a given ipset exists.
+// TODO(brb) Use "ipset -exist create <..>" for our purpose instead (for some reasons
+// creating an ipset with -exist fails).
+func ipsetExist(ips ipset.Interface, name ipset.Name) (bool, error) {
+	sets, err := ips.List(string(name))
+	if err != nil {
+		return false, err
+	}
+	for _, s := range sets {
+		if s == name {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// ConfigureIPTables idempotently configures all the iptables!
+func ConfigureIPTables(config *BridgeConfig, ips ipset.Interface) error {
 	ipt, err := iptables.New()
 	if err != nil {
 		return errors.Wrap(err, "creating iptables object")
@@ -515,8 +532,8 @@ func configureIPTables(config *BridgeConfig, ips ipset.Interface) error {
 
 	if !config.NPC {
 		// Create/Flush a chain for allowing ingress traffic when the bridge is exposed
-		if err := ipt.ClearChain("filter", "WEAVE-EXPOSE"); err != nil {
-			return errors.Wrap(err, "failed to clear/create filter/WEAVE-EXPOSE chain")
+		if err := ensureChains(ipt, "filter", "WEAVE-EXPOSE"); err != nil {
+			return errors.Wrap(err, "failed to ensure existence of filter/WEAVE-EXPOSE chain")
 		}
 
 		fwdRules = append(fwdRules, []string{"-o", config.WeaveBridgeName, "-j", "WEAVE-EXPOSE"})
@@ -532,8 +549,8 @@ func configureIPTables(config *BridgeConfig, ips ipset.Interface) error {
 	}
 
 	// Create a chain for masquerading
-	if err := ipt.ClearChain("nat", "WEAVE"); err != nil {
-		return errors.Wrap(err, "failed to clear/create nat/WEAVE chain")
+	if err := ensureChains(ipt, "nat", "WEAVE"); err != nil {
+		return errors.Wrap(err, "failed to ensure existence of nat/WEAVE chain")
 	}
 	if err := ipt.AppendUnique("nat", "POSTROUTING", "-j", "WEAVE"); err != nil {
 		return err
@@ -547,11 +564,17 @@ func configureIPTables(config *BridgeConfig, ips ipset.Interface) error {
 	// src IP addr.
 	if config.NoMasqLocal {
 		ips := ipset.New(common.LogLogger(), 0)
-		_ = ips.Destroy(NoMasqLocalIpset)
-		if err := ips.Create(NoMasqLocalIpset, ipset.HashNet); err != nil {
-			return err
+
+		noMasqLocalExists, err := ipsetExist(ips, NoMasqLocalIpset)
+		if err != nil {
+			common.Log.Errorf("Failed to look if ipset '%s' exists", NoMasqLocalIpset)
+		} else if !noMasqLocalExists {
+			if err := ips.Create(NoMasqLocalIpset, ipset.HashNet); err != nil {
+				return err
+			}
 		}
-		if err := ipt.Insert("nat", "WEAVE", 1,
+
+		if err := ipt.AppendUnique("nat", "WEAVE",
 			"-m", "set", "--match-set", string(NoMasqLocalIpset), "dst",
 			"-m", "comment", "--comment", "Prevent SNAT to locally running containers",
 			"-j", "RETURN"); err != nil {
