@@ -27,7 +27,7 @@ type Interface interface {
 	AddEntry(user types.UID, ipsetName Name, entry string, comment string) error
 	DelEntry(user types.UID, ipsetName Name, entry string) error
 	Exist(user types.UID, ipsetName Name, entry string) bool
-	ExistEntry(ipsetName Name) (bool, error)
+	EntryExists(ipsetName Name) (bool, error)
 	Flush(ipsetName Name) error
 	Destroy(ipsetName Name) error
 
@@ -129,7 +129,7 @@ func (i *ipset) Exist(user types.UID, ipsetName Name, entry string) bool {
 // Dummy way to check whether a given ipset exists.
 // TODO(brb) Use "ipset -exist create <..>" for our purpose instead (for some reasons
 // creating an ipset with -exist fails).
-func (i *ipset) ExistEntry(name Name) (bool, error) {
+func (i *ipset) EntryExists(name Name) (bool, error) {
 	sets, err := i.List(string(name))
 	if err != nil {
 		return false, err

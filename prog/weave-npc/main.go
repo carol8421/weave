@@ -196,7 +196,7 @@ func createBaseRules(ipt *iptables.IPTables, ips ipset.Interface) error {
 	}
 
 	// delete `weave-local-pods` ipset which is no longer used by weave-npc
-	weaveLocalPodExist, err := ips.ExistEntry(npc.LocalIpset)
+	weaveLocalPodExist, err := ips.EntryExists(npc.LocalIpset)
 	if err != nil {
 		common.Log.Errorf("Failed to look if ipset '%s' exists", npc.LocalIpset)
 	} else if weaveLocalPodExist {
