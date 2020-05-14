@@ -217,7 +217,7 @@ func main() {
 	mflag.StringVar(&discoveryEndpoint, []string{"-peer-discovery-url"}, "https://cloud.weave.works/api/net", "url for peer discovery")
 	mflag.StringVar(&token, []string{"-token"}, "", "token for peer discovery")
 	mflag.StringVar(&advertiseAddress, []string{"-advertise-address"}, "", "address to advertise for peer discovery")
-	mflag.DurationVar(&iptablesRefresh, []string{"-iptables-refresh-interval"}, 0*time.Second, "Interval to reapply iptables. 0 to only apply on launch.")
+	mflag.DurationVar(&iptablesRefresh, []string{"-iptables-refresh-interval"}, 10*time.Second, "Interval to reapply iptables. 0 to only apply on launch.")
 
 	mflag.BoolVar(&pluginConfig.Enable, []string{"-plugin"}, false, "enable Docker plugin (v1)")
 	mflag.BoolVar(&pluginConfig.EnableV2, []string{"-plugin-v2"}, false, "enable Docker plugin (v2)")
@@ -315,6 +315,8 @@ func main() {
 		}
 	}
 	ips := ipset.New(common.LogLogger(), 0)
+	err = weavenet.ResetIPTables(&bridgeConfig, ips)
+	checkFatal(err)
 	bridgeType, err := weavenet.EnsureBridge(procPath, &bridgeConfig, Log, ips)
 	checkFatal(err)
 	Log.Println("Bridge type is", bridgeType)

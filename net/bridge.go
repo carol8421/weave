@@ -262,10 +262,6 @@ func EnsureBridge(procPath string, config *BridgeConfig, log *logrus.Logger, ips
 		break
 	}
 
-	if err := resetIPTables(config, ips); err != nil {
-		return bridgeType, errors.Wrap(err, "reset iptables")
-	}
-
 	if err := ConfigureIPTables(config, ips); err != nil {
 		return bridgeType, errors.Wrap(err, "configuring iptables")
 	}
@@ -435,11 +431,11 @@ func (f fastdpImpl) attach(veth *netlink.Veth) error {
 	return odp.AddDatapathInterfaceIfNotExist(f.datapathName, veth.Attrs().Name)
 }
 
-// resetIPTables resets IPTables if their in a strange state.
-func resetIPTables(config *BridgeConfig, ips ipset.Interface) error {
+// ResetIPTables resets IPTables if they're in a strange state from a previous run.
+func ResetIPTables(config *BridgeConfig, ips ipset.Interface) error {
 	ipt, err := iptables.New()
 	if err != nil {
-		return errors.Wrap(err, "creating iptables object")
+		return errors.Wrap(err, "creating iptables object while resetting")
 	}
 
 	if !config.NPC {
@@ -468,7 +464,7 @@ func resetIPTables(config *BridgeConfig, ips ipset.Interface) error {
 func ConfigureIPTables(config *BridgeConfig, ips ipset.Interface) error {
 	ipt, err := iptables.New()
 	if err != nil {
-		return errors.Wrap(err, "creating iptables object")
+		return errors.Wrap(err, "creating iptables object while configuring")
 	}
 
 	// The order among weave filter/FORWARD rules is important!
