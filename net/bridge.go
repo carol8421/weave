@@ -431,22 +431,6 @@ func (f fastdpImpl) attach(veth *netlink.Veth) error {
 	return odp.AddDatapathInterfaceIfNotExist(f.datapathName, veth.Attrs().Name)
 }
 
-// Dummy way to check whether a given ipset exists.
-// TODO(brb) Use "ipset -exist create <..>" for our purpose instead (for some reasons
-// creating an ipset with -exist fails).
-func ipsetExist(ips ipset.Interface, name ipset.Name) (bool, error) {
-	sets, err := ips.List(string(name))
-	if err != nil {
-		return false, err
-	}
-	for _, s := range sets {
-		if s == name {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
 // ConfigureIPTables idempotently configures all the iptables!
 func ConfigureIPTables(config *BridgeConfig, ips ipset.Interface) error {
 	ipt, err := iptables.New()
@@ -565,7 +549,7 @@ func ConfigureIPTables(config *BridgeConfig, ips ipset.Interface) error {
 	if config.NoMasqLocal {
 		ips := ipset.New(common.LogLogger(), 0)
 
-		noMasqLocalExists, err := ipsetExist(ips, NoMasqLocalIpset)
+		noMasqLocalExists, err := ips.ExistEntry(NoMasqLocalIpset)
 		if err != nil {
 			common.Log.Errorf("Failed to look if ipset '%s' exists", NoMasqLocalIpset)
 		} else if !noMasqLocalExists {

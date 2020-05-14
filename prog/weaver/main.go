@@ -516,13 +516,12 @@ func main() {
 
 	if iptablesRefresh > 0 {
 		Log.Printf("Entering iptable refresh loop (interval %v)", iptablesRefresh)
-		// Tickity tock
 		ticker := time.NewTicker(iptablesRefresh).C
 		go func() {
 			for {
 				select {
 				case <-ticker:
-					Log.Print("Re-configuring iptables")
+					Log.Debug("Re-configuring iptables")
 					err := weavenet.ConfigureIPTables(&bridgeConfig, ips)
 					if err != nil {
 						Log.Errorf("Error configuring iptables: %s", err)
