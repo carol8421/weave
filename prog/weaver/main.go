@@ -531,7 +531,7 @@ func main() {
 					}
 
 					Log.Debug("Beginning re-exposure...")
-					reexpose(allocator, defaultSubnet, &bridgeConfig)
+					weavenet.Reexpose(&bridgeConfig, Log)
 					Log.Debug("... re-exposure complete.")
 				}
 			}
@@ -541,18 +541,6 @@ func main() {
 	}
 
 	signals.SignalHandlerLoop(common.Log, router)
-}
-
-func reexpose(alloc *ipam.Allocator, subnet address.CIDR, config *weavenet.BridgeConfig) {
-	addr, err := alloc.Allocate("weave:expose", subnet, false, func() bool { return false })
-	if err != nil {
-		Log.Errorf("Error configuring iptables: %s", err)
-	}
-
-	cidr := address.MakeCIDR(subnet, addr)
-	if err := weavenet.Expose(config.WeaveBridgeName, cidr.IPNet(), config.AWSVPC, config.NPC, false); err != nil {
-		Log.Errorf("unable to re-expose %s on bridge: %q: %s", cidr.IPNet(), config.WeaveBridgeName, err)
-	}
 }
 
 func exposeForAWSVPC(alloc *ipam.Allocator, subnet address.CIDR, bridgeName string, ready func()) {
