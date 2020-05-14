@@ -262,6 +262,10 @@ func EnsureBridge(procPath string, config *BridgeConfig, log *logrus.Logger, ips
 		break
 	}
 
+	if err := resetIPTables(config, ips); err != nil {
+		return bridgeType, errors.Wrap(err, "reset iptables")
+	}
+
 	if err := ConfigureIPTables(config, ips); err != nil {
 		return bridgeType, errors.Wrap(err, "configuring iptables")
 	}
@@ -429,6 +433,35 @@ func (bf bridgedFastdpImpl) attach(veth *netlink.Veth) error {
 
 func (f fastdpImpl) attach(veth *netlink.Veth) error {
 	return odp.AddDatapathInterfaceIfNotExist(f.datapathName, veth.Attrs().Name)
+}
+
+// resetIPTables resets IPTables if their in a strange state.
+func resetIPTables(config *BridgeConfig, ips ipset.Interface) error {
+	ipt, err := iptables.New()
+	if err != nil {
+		return errors.Wrap(err, "creating iptables object")
+	}
+
+	if !config.NPC {
+		// Create/Flush a chain for allowing ingress traffic when the bridge is exposed
+		if err := ipt.ClearChain("filter", "WEAVE-EXPOSE"); err != nil {
+			return errors.Wrap(err, "failed to clear/create filter/WEAVE-EXPOSE chain")
+		}
+	}
+
+	if err := ipt.ClearChain("nat", "WEAVE"); err != nil {
+		return errors.Wrap(err, "failed to clear/create nat/WEAVE chain")
+	}
+
+	if config.NoMasqLocal {
+		ips := ipset.New(common.LogLogger(), 0)
+		_ = ips.Destroy(NoMasqLocalIpset)
+		if err := ips.Create(NoMasqLocalIpset, ipset.HashNet); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ConfigureIPTables idempotently configures all the iptables!
