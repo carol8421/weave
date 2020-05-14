@@ -77,8 +77,9 @@ func (i *mockIPSet) Exist(user types.UID, ipsetName ipset.Name, entry string) bo
 	return ok
 }
 
-func (i *mockIPSet) EntryExists(ipsetName ipset.Name, entry string) (bool, error) {
-	return i.entryExists(ipsetName, entry), nil
+func (i *mockIPSet) ExistEntry(ipsetName ipset.Name) (bool, error) {
+	_, ok := i.sets[string(ipsetName)]
+	return ok, nil
 }
 
 func (i *mockIPSet) entryExists(ipsetName ipset.Name, entry string) bool {
