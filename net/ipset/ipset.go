@@ -127,8 +127,6 @@ func (i *ipset) EntryExists(user types.UID, ipsetName Name, entry string) bool {
 }
 
 // Dummy way to check whether a given ipset exists.
-// TODO(brb) Use "ipset -exist create <..>" for our purpose instead (for some reasons
-// creating an ipset with -exist fails).
 func (i *ipset) Exists(name Name) (bool, error) {
 	sets, err := i.List(string(name))
 	if err != nil {

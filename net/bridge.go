@@ -580,7 +580,7 @@ func ConfigureIPTables(config *BridgeConfig, ips ipset.Interface) error {
 
 		noMasqLocalExists, err := ips.Exists(NoMasqLocalIpset)
 		if err != nil {
-			common.Log.Errorf("Failed to look if ipset '%s' exists", NoMasqLocalIpset)
+			common.Log.Errorf("Failed to look if ipset '%s' exists: %s", NoMasqLocalIpset, err)
 		} else if !noMasqLocalExists {
 			if err := ips.Create(NoMasqLocalIpset, ipset.HashNet); err != nil {
 				return err
