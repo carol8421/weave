@@ -19,6 +19,4 @@ wait_for 900 "$TEST_VMS_READY_LOCK_FILE"
 export COVERAGE=true
 export WEAVE_NET_SANITY_CHECKS_FILES="$CIRCLE_ARTIFACTS/weave_net_sanity_check_*.log"
 cd "$SRCDIR/test" # Ensures we generate code coverage files in the right folder, and use the Terraform state of previously provisionned VMs.
-export TESTS="./130_expose_2_test.sh ./135_expose_iptables_refresh.sh"
-export DEBUG=1
 ./run-integration-tests.sh test

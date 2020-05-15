@@ -15,8 +15,8 @@ kill_weaver() {
 start_suite "Re-create bridge after restart"
 
 # Should create a bridge of the "bridge" type.
-WEAVE_NO_FASTDP=1 weave_on $HOST1 launch --iptables-refresh-interval=0s
-WEAVE_NO_FASTDP=1 weave_on $HOST2 launch $HOST1 --iptables-refresh-interval=0s
+WEAVE_NO_FASTDP=1 weave_on $HOST1 launch
+WEAVE_NO_FASTDP=1 weave_on $HOST2 launch $HOST1
 
 start_container $HOST1 $C1/24 --name=c1
 start_container $HOST2 $C2/24 --name=c2
