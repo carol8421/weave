@@ -49,7 +49,7 @@ check_container_connectivity() {
 
 start_suite "exposing weave network to host"
 
-weave_on $HOST1 launch --ipalloc-range $UNIVERSE --iptables-refresh-interval=1s
+weave_on $HOST1 launch --ipalloc-range $UNIVERSE --iptables-refresh-interval=0s
 
 start_container $HOST1 $C1/24 --name=c1
 start_container $HOST1 $C2/24 --name=c2
