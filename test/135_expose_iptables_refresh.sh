@@ -32,7 +32,7 @@ IPT_BEFORE=$(get_weave_iptable_rules)
 run_on1 "sudo iptables -t nat -D POSTROUTING -j WEAVE"
 wait_for_iptable_refresh
 IPT_AFTER=$(get_weave_iptable_rules)
-assert_raises "diff <(echo "$IPT_BEFORE") <(echo "$IPT_AFTER")" 1
+assert_raises "diff <(echo $IPT_BEFORE) <(echo $IPT_AFTER)" 1
 stop_weave_on1
 
 ## Check refreshing
@@ -41,7 +41,7 @@ IPT_BEFORE=$(get_weave_iptable_rules)
 run_on1 "sudo iptables -t nat -D POSTROUTING -j WEAVE"
 wait_for_iptable_refresh
 IPT_AFTER=$(get_weave_iptable_rules)
-assert_raises "diff <(echo "$IPT_BEFORE") <(echo "$IPT_AFTER")" 0
+assert_raises "diff <(echo $IPT_BEFORE) <(echo $IPT_AFTER)" 0
 stop_weave_on1
 
 # Expose
@@ -53,7 +53,7 @@ IPT_BEFORE=$(get_weave_iptable_rules)
 run_on1 "sudo iptables -D FORWARD -o weave -j WEAVE-EXPOSE"
 wait_for_iptable_refresh
 IPT_AFTER=$(get_weave_iptable_rules)
-assert_raises "diff <(echo "$IPT_BEFORE") <(echo "$IPT_AFTER")" 1
+assert_raises "diff <(echo $IPT_BEFORE) <(echo $IPT_AFTER)" 1
 stop_weave_on1
 
 ## Check refreshing
@@ -63,7 +63,7 @@ IPT_BEFORE=$(get_weave_iptable_rules)
 run_on1 "sudo iptables -D FORWARD -o weave -j WEAVE-EXPOSE"
 wait_for_iptable_refresh
 IPT_AFTER=$(get_weave_iptable_rules)
-assert_raises "diff <(echo "$IPT_BEFORE") <(echo "$IPT_AFTER")" 0
+assert_raises "diff <(echo $IPT_BEFORE) <(echo $IPT_AFTER)" 0
 stop_weave_on1
 
 end_suite
