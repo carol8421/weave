@@ -27,14 +27,8 @@ exec_on1() {
     assert_raises "exec_on  $HOST1 $@"
 }
 
-echo_rules() {
-    local rules=$(get_command_output_on $HOST1 "sudo iptables-save | grep -i weave")
-    echo $rules
-}
-
 wait_for_iptable_refresh() {
     sleep 2
-    echo_rules
 }
 
 # Containers in the same subnet should be able to talk; different subnet not.
@@ -49,7 +43,7 @@ check_container_connectivity() {
 
 start_suite "exposing weave network to host"
 
-weave_on $HOST1 launch --ipalloc-range $UNIVERSE --iptables-refresh-interval=0s
+weave_on $HOST1 launch --ipalloc-range $UNIVERSE --iptables-refresh-interval=1s
 
 start_container $HOST1 $C1/24 --name=c1
 start_container $HOST1 $C2/24 --name=c2
