@@ -20,4 +20,5 @@ export COVERAGE=true
 export WEAVE_NET_SANITY_CHECKS_FILES="$CIRCLE_ARTIFACTS/weave_net_sanity_check_*.log"
 cd "$SRCDIR/test" # Ensures we generate code coverage files in the right folder, and use the Terraform state of previously provisionned VMs.
 export TESTS="./130_expose_2_test.sh"
+export DEBUG=1
 ./run-integration-tests.sh test
