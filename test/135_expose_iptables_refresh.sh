@@ -33,8 +33,8 @@ start_suite "exposing weave network to host"
 
 ## Check no refreshing
 weave_on1 "launch --iptables-refresh-interval=0s"
-IPT_BEFORE=$(make_temp_file)
-IPT_AFTER=$(make_temp_file)
+IPT_BEFORE=$(mktemp)
+IPT_AFTER=$(mktemp)
 run_on1 "sudo iptables-save | grep -i weave > $IPT_BEFORE"
 echo_rules
 run_on1 "sudo iptables -t nat -D POSTROUTING -j WEAVE"
@@ -48,8 +48,8 @@ stop_weave_on1
 
 ## Check refreshing
 weave_on1 "launch --iptables-refresh-interval=1s"
-IPT_BEFORE=$(make_temp_file)
-IPT_AFTER=$(make_temp_file)
+IPT_BEFORE=$(mktemp)
+IPT_AFTER=$(mktemp)
 run_on1 "sudo iptables-save | grep -i weave > $IPT_BEFORE"
 echo_rules
 run_on1 "sudo iptables -t nat -D POSTROUTING -j WEAVE"
@@ -66,8 +66,8 @@ stop_weave_on1
 ## Check no refreshing
 weave_on1 "launch --iptables-refresh-interval=0s"
 weave_on1 "expose"
-IPT_BEFORE=$(make_temp_file)
-IPT_AFTER=$(make_temp_file)
+IPT_BEFORE=$(mktemp)
+IPT_AFTER=$(mktemp)
 run_on1 "sudo iptables-save | grep -i weave > $IPT_BEFORE"
 echo_rules
 run_on1 "sudo iptables -D FORWARD -o weave -j WEAVE-EXPOSE"
@@ -82,8 +82,8 @@ stop_weave_on1
 ## Check refreshing
 weave_on1 "launch --iptables-refresh-interval=1s"
 weave_on1 "expose"
-IPT_BEFORE=$(make_temp_file)
-IPT_AFTER=$(make_temp_file)
+IPT_BEFORE=$(mktemp)
+IPT_AFTER=$(mktemp)
 run_on1 "sudo iptables-save | grep -i weave > $IPT_BEFORE"
 echo_rules
 run_on1 "sudo iptables -D FORWARD -o weave -j WEAVE-EXPOSE"
