@@ -28,7 +28,8 @@ exec_on1() {
 }
 
 echo_rules() {
-    run_on1   "sudo iptables-save | grep -i weave"
+    local rules=$(get_command_output_on $HOST1 "sudo iptables-save | grep -i weave")
+    echo $rules
 }
 
 wait_for_iptable_refresh() {
