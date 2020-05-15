@@ -9,11 +9,11 @@ run_on1() {
 }
 
 weave_on1() {
-    assert_raises "weave_on $host1 $@"
+    assert_raises "weave_on $HOST1 $@"
 }
 
 stop_weave_on1() {
-    assert_raises "stop_weave_on $host1 $@"
+    assert_raises "stop_weave_on $HOST1 $@"
 }
 
 echo_rules() {
