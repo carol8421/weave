@@ -27,8 +27,13 @@ exec_on1() {
     assert_raises "exec_on  $HOST1 $@"
 }
 
+echo_rules() {
+    run_on1   "sudo iptables-save | grep -i weave"
+}
+
 wait_for_iptable_refresh() {
     sleep 2
+    echo_rules
 }
 
 # Containers in the same subnet should be able to talk; different subnet not.

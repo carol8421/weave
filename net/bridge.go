@@ -297,8 +297,6 @@ func EnsureBridge(procPath string, config *BridgeConfig, log *logrus.Logger, ips
 		return bridgeType, errors.Wrapf(err, "configuring ARP cache on bridge %q", config.WeaveBridgeName)
 	}
 
-	// NB: No concurrent call to Expose is possible, as EnsureBridge is called
-	// before any service has been started.
 	if err := Reexpose(config, log); err != nil {
 		return bridgeType, err
 	}
@@ -645,7 +643,6 @@ func linkSetUpByName(linkName string) error {
 	return netlink.LinkSetUp(link)
 }
 
-// Reexpose can be called concurrently? :thinking:
 func Reexpose(config *BridgeConfig, log *logrus.Logger) error {
 	// Get existing IP addrs of the weave bridge.
 	// If the bridge hasn't been exposed, then this functions does nothing.
