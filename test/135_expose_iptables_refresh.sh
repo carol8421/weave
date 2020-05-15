@@ -2,6 +2,8 @@
 
 . "$(dirname "$0")/config.sh"
 
+set -x
+
 run_on1() {
     assert_raises "run_on $HOST1 $@"
 }
