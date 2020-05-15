@@ -14,13 +14,8 @@ stop_weave_on1() {
     assert_raises "stop_weave_on $HOST1 $@"
 }
 
-echo_rules() {
-    local rules=$(get_command_output_on $HOST1 "sudo iptables-save | grep -i weave")
-    echo $rules
-}
-
-make_temp_file() {
-    get_command_output_on $HOST1 "mktemp"
+get_weave_iptable_rules() {
+    get_command_output_on $HOST1 "sudo iptables-save | grep -i weave"
 }
 
 wait_for_iptable_refresh() {
@@ -33,32 +28,20 @@ start_suite "exposing weave network to host"
 
 ## Check no refreshing
 weave_on1 "launch --iptables-refresh-interval=0s"
-IPT_BEFORE=$(mktemp)
-IPT_AFTER=$(mktemp)
-run_on1 "sudo iptables-save | grep -i weave > $IPT_BEFORE"
-echo_rules
+IPT_BEFORE=$(get_weave_iptable_rules)
 run_on1 "sudo iptables -t nat -D POSTROUTING -j WEAVE"
-echo_rules
 wait_for_iptable_refresh
-echo_rules
-run_on1 "sudo iptables-save | grep -i weave > $IPT_AFTER"
-assert_raises "run_on $HOST1 diff $IPT_BEFORE $IPT_AFTER" 1
-get_command_output_on $HOST1 "diff $IPT_BEFORE $IPT_AFTER"
+IPT_AFTER=$(get_weave_iptable_rules)
+assert_raises "diff <(echo "$IPT_BEFORE") <(echo "$IPT_AFTER")" 1
 stop_weave_on1
 
 ## Check refreshing
 weave_on1 "launch --iptables-refresh-interval=1s"
-IPT_BEFORE=$(mktemp)
-IPT_AFTER=$(mktemp)
-run_on1 "sudo iptables-save | grep -i weave > $IPT_BEFORE"
-echo_rules
+IPT_BEFORE=$(get_weave_iptable_rules)
 run_on1 "sudo iptables -t nat -D POSTROUTING -j WEAVE"
-echo_rules
 wait_for_iptable_refresh
-echo_rules
-run_on1 "sudo iptables-save | grep -i weave > $IPT_AFTER"
-assert_raises "run_on $HOST1 diff $IPT_BEFORE $IPT_AFTER"
-get_command_output_on $HOST1 "diff $IPT_BEFORE $IPT_AFTER"
+IPT_AFTER=$(get_weave_iptable_rules)
+assert_raises "diff <(echo "$IPT_BEFORE") <(echo "$IPT_AFTER")" 0
 stop_weave_on1
 
 # Expose
@@ -66,33 +49,21 @@ stop_weave_on1
 ## Check no refreshing
 weave_on1 "launch --iptables-refresh-interval=0s"
 weave_on1 "expose"
-IPT_BEFORE=$(mktemp)
-IPT_AFTER=$(mktemp)
-run_on1 "sudo iptables-save | grep -i weave > $IPT_BEFORE"
-echo_rules
+IPT_BEFORE=$(get_weave_iptable_rules)
 run_on1 "sudo iptables -D FORWARD -o weave -j WEAVE-EXPOSE"
-echo_rules
 wait_for_iptable_refresh
-echo_rules
-run_on1 "sudo iptables-save | grep -i weave > $IPT_AFTER"
-assert_raises "run_on $HOST1 diff $IPT_BEFORE $IPT_AFTER" 1
-get_command_output_on $HOST1 "diff $IPT_BEFORE $IPT_AFTER"
+IPT_AFTER=$(get_weave_iptable_rules)
+assert_raises "diff <(echo "$IPT_BEFORE") <(echo "$IPT_AFTER")" 1
 stop_weave_on1
 
 ## Check refreshing
 weave_on1 "launch --iptables-refresh-interval=1s"
 weave_on1 "expose"
-IPT_BEFORE=$(mktemp)
-IPT_AFTER=$(mktemp)
-run_on1 "sudo iptables-save | grep -i weave > $IPT_BEFORE"
-echo_rules
+IPT_BEFORE=$(get_weave_iptable_rules)
 run_on1 "sudo iptables -D FORWARD -o weave -j WEAVE-EXPOSE"
-echo_rules
 wait_for_iptable_refresh
-echo_rules
-run_on1 "sudo iptables-save | grep -i weave > $IPT_AFTER"
-assert_raises "run_on $HOST1 diff $IPT_BEFORE $IPT_AFTER"
-get_command_output_on $HOST1 "diff $IPT_BEFORE $IPT_AFTER"
+IPT_AFTER=$(get_weave_iptable_rules)
+assert_raises "diff <(echo "$IPT_BEFORE") <(echo "$IPT_AFTER")" 0
 stop_weave_on1
 
 end_suite
