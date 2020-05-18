@@ -2,9 +2,12 @@ package net
 
 import (
 	"strings"
+	"time"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/pkg/errors"
+	utilexec "k8s.io/apimachinery/pkg/util/exec"
+	utilwait "k8s.io/apimachinery/pkg/util/wait"
 )
 
 // AddChainWithRules creates a chain and appends given rules to it.
@@ -103,4 +106,98 @@ func ensureRulesAtTop(table, chain string, rulespecs [][]string, ipt *iptables.I
 	}
 
 	return nil
+}
+
+type Chain string
+type Table string
+
+const (
+	// Max time we wait for an iptables flush to complete after we notice it has started
+	iptablesFlushTimeout = 5 * time.Second
+	// How often we poll while waiting for an iptables flush to complete
+	iptablesFlushPollTime = 100 * time.Millisecond
+)
+
+// Monitor is part of Interface
+func Monitor(canary Chain, tables []Table, reloadFunc func(), interval time.Duration, stopCh <-chan struct{}) {
+	for {
+		_ = PollImmediateUntil(interval, func() (bool, error) {
+			for _, table := range tables {
+				if _, err := runner.EnsureChain(table, canary); err != nil {
+					klog.Warningf("Could not set up iptables canary %s/%s: %v", string(table), string(canary), err)
+					return false, nil
+				}
+			}
+			return true, nil
+		}, stopCh)
+
+		// Poll until stopCh is closed or iptables is flushed
+		err := utilwait.PollUntil(interval, func() (bool, error) {
+			if exists, err := runner.chainExists(tables[0], canary); exists {
+				return false, nil
+			} else if isResourceError(err) {
+				klog.Warningf("Could not check for iptables canary %s/%s: %v", string(tables[0]), string(canary), err)
+				return false, nil
+			}
+			klog.V(2).Infof("iptables canary %s/%s deleted", string(tables[0]), string(canary))
+
+			// Wait for the other canaries to be deleted too before returning
+			// so we don't start reloading too soon.
+			err := utilwait.PollImmediate(iptablesFlushPollTime, iptablesFlushTimeout, func() (bool, error) {
+				for i := 1; i < len(tables); i++ {
+					if exists, err := runner.chainExists(tables[i], canary); exists || isResourceError(err) {
+						return false, nil
+					}
+				}
+				return true, nil
+			})
+			if err != nil {
+				klog.Warning("Inconsistent iptables state detected.")
+			}
+			return true, nil
+		}, stopCh)
+
+		if err != nil {
+			// stopCh was closed
+			for _, table := range tables {
+				_ = runner.DeleteChain(table, canary)
+			}
+			return
+		}
+
+		klog.V(2).Infof("Reloading after iptables flush")
+		reloadFunc()
+	}
+}
+
+const iptablesStatusResourceProblem = 4
+
+// isResourceError returns true if the error indicates that iptables ran into a "resource
+// problem" and was unable to attempt the request. In particular, this will be true if it
+// times out trying to get the iptables lock.
+func isResourceError(err error) bool {
+	if ee, isExitError := err.(utilexec.ExitError); isExitError {
+		return ee.ExitStatus() == iptablesStatusResourceProblem
+	}
+	return false
+}
+
+// PollImmediateUntil tries a condition func until it returns true, an error or stopCh is closed.
+//
+// PollImmediateUntil runs the 'condition' before waiting for the interval.
+// 'condition' will always be invoked at least once.
+func PollImmediateUntil(interval time.Duration, condition utilwait.ConditionFunc, stopCh <-chan struct{}) error {
+	done, err := condition()
+	if err != nil {
+		return err
+	}
+	if done {
+		return nil
+	}
+	select {
+	case <-stopCh:
+		return utilwait.ErrWaitTimeout
+	default:
+		return utilwait.PollUntil(interval, condition, stopCh)
+	}
 }
