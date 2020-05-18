@@ -2,11 +2,12 @@ package net
 
 import (
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/pkg/errors"
-	utilexec "k8s.io/apimachinery/pkg/util/exec"
+	"github.com/sirupsen/logrus"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -108,8 +109,19 @@ func ensureRulesAtTop(table, chain string, rulespecs [][]string, ipt *iptables.I
 	return nil
 }
 
-type Chain string
-type Table string
+func chainExists(ipt *iptables.IPTables, table string, chain string) (bool, error) {
+	existingChains, err := ipt.ListChains(table)
+	if err != nil {
+		return false, errors.Wrapf(err, "ipt.ListChains(%s)", table)
+	}
+	chainMap := make(map[string]struct{})
+	for _, c := range existingChains {
+		chainMap[c] = struct{}{}
+	}
+
+	_, found := chainMap[chain]
+	return found, nil
+}
 
 const (
 	// Max time we wait for an iptables flush to complete after we notice it has started
@@ -119,12 +131,18 @@ const (
 )
 
 // Monitor is part of Interface
-func Monitor(canary Chain, tables []Table, reloadFunc func(), interval time.Duration, stopCh <-chan struct{}) {
+func Monitor(log *logrus.Logger, canary string, tables []string, reloadFunc func(), interval time.Duration, stopCh <-chan struct{}) {
+	ipt, err := iptables.New()
+	if err != nil {
+		log.Errorf("creating iptables object while initializing iptable Monitoring %s", err)
+		return
+	}
+
 	for {
 		_ = PollImmediateUntil(interval, func() (bool, error) {
 			for _, table := range tables {
-				if _, err := runner.EnsureChain(table, canary); err != nil {
-					klog.Warningf("Could not set up iptables canary %s/%s: %v", string(table), string(canary), err)
+				if err := ensureChains(ipt, table, canary); err != nil {
+					log.Warningf("Could not set up iptables canary %s/%s: %v", table, canary, err)
 					return false, nil
 				}
 			}
@@ -132,27 +150,27 @@ func Monitor(canary Chain, tables []Table, reloadFunc func(), interval time.Dura
 		}, stopCh)
 
 		// Poll until stopCh is closed or iptables is flushed
-		err := utilwait.PollUntil(interval, func() (bool, error) {
-			if exists, err := runner.chainExists(tables[0], canary); exists {
+		err = utilwait.PollUntil(interval, func() (bool, error) {
+			if exists, err := chainExists(ipt, tables[0], canary); exists {
 				return false, nil
 			} else if isResourceError(err) {
-				klog.Warningf("Could not check for iptables canary %s/%s: %v", string(tables[0]), string(canary), err)
+				log.Warningf("Could not check for iptables canary %s/%s: %v", tables[0], canary, err)
 				return false, nil
 			}
-			klog.V(2).Infof("iptables canary %s/%s deleted", string(tables[0]), string(canary))
+			log.Infof("iptables canary %s/%s deleted", tables[0], canary)
 
 			// Wait for the other canaries to be deleted too before returning
 			// so we don't start reloading too soon.
 			err := utilwait.PollImmediate(iptablesFlushPollTime, iptablesFlushTimeout, func() (bool, error) {
 				for i := 1; i < len(tables); i++ {
-					if exists, err := runner.chainExists(tables[i], canary); exists || isResourceError(err) {
+					if exists, err := chainExists(ipt, tables[i], canary); exists || isResourceError(err) {
 						return false, nil
 					}
 				}
 				return true, nil
 			})
 			if err != nil {
-				klog.Warning("Inconsistent iptables state detected.")
+				log.Warning("Inconsistent iptables state detected.")
 			}
 			return true, nil
 		}, stopCh)
@@ -160,12 +178,12 @@ func Monitor(canary Chain, tables []Table, reloadFunc func(), interval time.Dura
 		if err != nil {
 			// stopCh was closed
 			for _, table := range tables {
-				_ = runner.DeleteChain(table, canary)
+				_ = ipt.DeleteChain(table, canary)
 			}
 			return
 		}
 
-		klog.V(2).Infof("Reloading after iptables flush")
+		log.Infof("Reloading after iptables flush")
 		reloadFunc()
 	}
 }
@@ -176,9 +194,12 @@ const iptablesStatusResourceProblem = 4
 // problem" and was unable to attempt the request. In particular, this will be true if it
 // times out trying to get the iptables lock.
 func isResourceError(err error) bool {
-	if ee, isExitError := err.(utilexec.ExitError); isExitError {
-		return ee.ExitStatus() == iptablesStatusResourceProblem
+	if ierr, ok := err.(*iptables.Error); ok {
+		if status, ok := ierr.ExitError.Sys().(syscall.WaitStatus); ok {
+			return status.ExitStatus() == iptablesStatusResourceProblem
+		}
 	}
+
 	return false
 }
 
